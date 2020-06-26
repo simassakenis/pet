@@ -267,7 +267,15 @@ class MnliPVP(PVP):
         if self.pattern_id == 0 or self.pattern_id == 2:
             return ['"', text_a, '" ?'], [self.mask, ', "', text_b, '"']
         elif self.pattern_id == 1 or self.pattern_id == 3:
+            ### NEW ###
+            # return [text_a, '?'], [self.mask, ',', text_b]
+            cond_a = ('Vrenna and I both fought him and he nearly took us. ? '
+                      'No, Neither Vrenna nor myself have ever fought him.')
+            cond_b = ('You have access to the facts. ? '
+                      'Yes, The facts are accessible to you.')
+            text_a = (cond_a + '\n\n' + cond_b + '\n\n' + text_a[0], text_a[1])
             return [text_a, '?'], [self.mask, ',', text_b]
+            ### NEW ###
 
     def verbalize(self, label) -> List[str]:
         if self.pattern_id == 0 or self.pattern_id == 1:

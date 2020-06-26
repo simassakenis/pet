@@ -262,7 +262,12 @@ class TransformerModelWrapper:
                 loss.backward()
 
                 tr_loss += loss.item()
-                if (step + 1) % gradient_accumulation_steps == 0:
+                ### NEW ###
+                # if (step + 1) % gradient_accumulation_steps == 0:
+                edge_case = (len(epoch_iterator) < gradient_accumulation_steps
+                             and step == len(epoch_iterator) - 1)
+                if (step + 1) % gradient_accumulation_steps == 0 or edge_case:
+                ### NEW ###
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_grad_norm)
                     optimizer.step()
                     scheduler.step()
@@ -290,7 +295,6 @@ class TransformerModelWrapper:
 
     def eval(self, eval_data: List[InputExample], device, per_gpu_eval_batch_size: int = 8, n_gpu: int = 1,
              output_logits: bool = False, **_):
-
         eval_dataset = self._generate_dataset(eval_data)
         eval_batch_size = per_gpu_eval_batch_size * max(1, n_gpu)
         eval_sampler = SequentialSampler(eval_dataset)
@@ -332,6 +336,7 @@ class TransformerModelWrapper:
 
     def _generate_dataset(self, data: List[InputExample], labelled: bool = True):
         features = self._convert_examples_to_features(data, labelled)
+
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
         all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)

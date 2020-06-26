@@ -191,15 +191,21 @@ def main():
                         len(additional_data), p, len(pattern_iter_train_data)
                     ))
 
-                logger.info("Starting training...")
+                ### NEW ###
+                if args.max_steps > 0:
+                    print('aaa')
+                    logger.info("Starting training...")
 
-                global_step, tr_loss = wrapper.train(
-                    pattern_iter_train_data, device,
-                    helper_train_data=all_train_data if args.lm_training or args.use_logits else None,
-                    tmp_dir=output_dir, **vars(args))
+                    global_step, tr_loss = wrapper.train(
+                        pattern_iter_train_data, device,
+                        helper_train_data=all_train_data if args.lm_training or args.use_logits else None,
+                        tmp_dir=output_dir, **vars(args))
 
-                logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
-                logger.info("Training complete")
+                    logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
+                    logger.info("Training complete")
+                else:
+                    logger.info("Skipping training... (max_steps=0)")
+                ### NEW ###
 
                 results_dict['train_set_after_training'] = wrapper.eval(train_data, device, **vars(args))['acc']
 

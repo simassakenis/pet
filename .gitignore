@@ -7,3 +7,7 @@
 .pytest_cache
 glue_data/*
 out/*
+data/*
+job_outputs/*
+output_unsupervised_mnli_10_experiment/*
+output_unsupervised_yahoo_10/*
