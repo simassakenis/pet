@@ -119,6 +119,10 @@ def main():
                         help="Whether to perform training")
     parser.add_argument('--do_eval', action='store_true',
                         help="Whether to perform evaluation")
+    ### NEW ###
+    parser.add_argument('--do_few_shot', action='store_true',
+                        help="Whether to perform few shot conditioning")
+    ### NEW ###
     args = parser.parse_args()
 
     if os.path.exists(args.output_dir) and os.listdir(args.output_dir) \
@@ -176,6 +180,11 @@ def main():
                 wrapper = TransformerModelWrapper(args)
                 wrapper.model.to(device)
 
+                ### NEW ###
+                if args.do_few_shot:
+                    wrapper.preprocessor.pvp.few_shot_data = train_data
+                ### NEW ###
+
                 results_dict['train_set_before_training'] = wrapper.eval(train_data, device, **vars(args))['acc']
 
                 pattern_iter_train_data = []
@@ -193,7 +202,6 @@ def main():
 
                 ### NEW ###
                 if args.max_steps > 0:
-                    print('aaa')
                     logger.info("Starting training...")
 
                     global_step, tr_loss = wrapper.train(

@@ -47,6 +47,9 @@ class PVP(ABC):
             self.verbalize = PVP._load_verbalizer_from_file(verbalizer_file, self.pattern_id)
 
         self.mlm_logits_to_cls_logits_tensor = self._build_mlm_logits_to_cls_logits_tensor()
+        ### NEW ###
+        self.few_shot_data = None
+        ### NEW ###
 
     def _build_mlm_logits_to_cls_logits_tensor(self):
         label_list = self.wrapper.config.label_list
@@ -76,6 +79,19 @@ class PVP(ABC):
         tokenizer = self.wrapper.tokenizer  # type: PreTrainedTokenizer
         parts_a, parts_b = self.get_parts(example)
 
+        ### NEW ###
+        cond = []
+        if self.few_shot_data is not None:
+            self.few_shot_data.sort(key=lambda x: len(x.text_a) + len(x.text_b),
+                                    reverse=True)
+            for ex in self.few_shot_data:
+                cond_a, cond_b = self.get_parts(ex)
+                # Maye use \n\n instead of separator token
+                cond.extend(self.verbalize(ex.label)[0] if p == self.mask else p
+                            for p in cond_a + cond_b + [tokenizer.sep_token])
+        parts_a = cond + parts_a
+        ### NEW ###
+
         kwargs = {'add_prefix_space': True} if isinstance(tokenizer, GPT2Tokenizer) else {}
 
         parts_a = [x if isinstance(x, tuple) else (x, False) for x in parts_a]
@@ -86,6 +102,12 @@ class PVP(ABC):
             parts_b = [(tokenizer.encode(x, add_special_tokens=False, **kwargs), s) for x, s in parts_b if x]
 
         self.truncate(parts_a, parts_b, max_length=self.wrapper.config.max_seq_length)
+        ### NEW ###
+        if self.few_shot_data is not None:
+            logger.info("Conditioning on {}/{} examples".format(
+                parts_a.count(([self.wrapper.tokenizer.sep_token_id], False)),
+                len(self.few_shot_data)))
+        ### NEW ###
 
         tokens_a = [token_id for part, _ in parts_a for token_id in part]
         tokens_b = [token_id for part, _ in parts_b for token_id in part] if parts_b else None
@@ -111,6 +133,13 @@ class PVP(ABC):
 
         if num_tokens_to_remove <= 0:
             return parts_a, parts_b
+
+        ### NEW ###
+        separator_part = ([self.wrapper.tokenizer.sep_token_id], False)
+        if separator_part in parts_a:
+            parts_a[:] = parts_a[parts_a.index(separator_part)+1:]
+            return self.truncate(parts_a, parts_b, max_length)
+        ### NEW ###
 
         for _ in range(num_tokens_to_remove):
             if self._seq_length(parts_a, only_shortenable=True) > self._seq_length(parts_b, only_shortenable=True):
@@ -267,15 +296,7 @@ class MnliPVP(PVP):
         if self.pattern_id == 0 or self.pattern_id == 2:
             return ['"', text_a, '" ?'], [self.mask, ', "', text_b, '"']
         elif self.pattern_id == 1 or self.pattern_id == 3:
-            ### NEW ###
-            # return [text_a, '?'], [self.mask, ',', text_b]
-            cond_a = ('Vrenna and I both fought him and he nearly took us. ? '
-                      'No, Neither Vrenna nor myself have ever fought him.')
-            cond_b = ('You have access to the facts. ? '
-                      'Yes, The facts are accessible to you.')
-            text_a = (cond_a + '\n\n' + cond_b + '\n\n' + text_a[0], text_a[1])
             return [text_a, '?'], [self.mask, ',', text_b]
-            ### NEW ###
 
     def verbalize(self, label) -> List[str]:
         if self.pattern_id == 0 or self.pattern_id == 1:
