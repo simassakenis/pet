@@ -49,6 +49,10 @@ class PVP(ABC):
         self.mlm_logits_to_cls_logits_tensor = self._build_mlm_logits_to_cls_logits_tensor()
         ### NEW ###
         self.few_shot_data = None
+        # self.few_shot_sep = ' . \n\n .'
+        self.few_shot_sep = self.wrapper.tokenizer.sep_token
+        self.few_shot_sep_part = (self.wrapper.tokenizer.encode(
+            self.few_shot_sep, add_special_tokens=False), False)
         ### NEW ###
 
     def _build_mlm_logits_to_cls_logits_tensor(self):
@@ -82,13 +86,10 @@ class PVP(ABC):
         ### NEW ###
         cond = []
         if self.few_shot_data is not None:
-            self.few_shot_data.sort(key=lambda x: len(x.text_a) + len(x.text_b),
-                                    reverse=True)
             for ex in self.few_shot_data:
                 cond_a, cond_b = self.get_parts(ex)
-                # Maye use \n\n instead of separator token
                 cond.extend(self.verbalize(ex.label)[0] if p == self.mask else p
-                            for p in cond_a + cond_b + [tokenizer.sep_token])
+                            for p in cond_a + cond_b + [self.few_shot_sep])
         parts_a = cond + parts_a
         ### NEW ###
 
@@ -104,9 +105,15 @@ class PVP(ABC):
         self.truncate(parts_a, parts_b, max_length=self.wrapper.config.max_seq_length)
         ### NEW ###
         if self.few_shot_data is not None:
-            logger.info("Conditioning on {}/{} examples".format(
-                parts_a.count(([self.wrapper.tokenizer.sep_token_id], False)),
-                len(self.few_shot_data)))
+            num_cond = parts_a.count(self.few_shot_sep_part)
+            logger.info("Conditioning on {}/{} examples; labels: {}".format(
+                num_cond, len(self.few_shot_data),
+                [ex.label for ex in self.few_shot_data[-num_cond:]]))
+            # Removing dots (which were added to tokenize \n\n properly)
+            if self.few_shot_sep == ' . \n\n .':
+                parts_a = [(p[0][1:-1], p[1])
+                           if p == self.few_shot_sep_part else p
+                           for p in parts_a]
         ### NEW ###
 
         tokens_a = [token_id for part, _ in parts_a for token_id in part]
@@ -135,9 +142,8 @@ class PVP(ABC):
             return parts_a, parts_b
 
         ### NEW ###
-        separator_part = ([self.wrapper.tokenizer.sep_token_id], False)
-        if separator_part in parts_a:
-            parts_a[:] = parts_a[parts_a.index(separator_part)+1:]
+        if self.few_shot_sep_part in parts_a:
+            parts_a[:] = parts_a[parts_a.index(self.few_shot_sep_part)+1:]
             return self.truncate(parts_a, parts_b, max_length)
         ### NEW ###
 

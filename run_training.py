@@ -121,7 +121,11 @@ def main():
                         help="Whether to perform evaluation")
     ### NEW ###
     parser.add_argument('--do_few_shot', action='store_true',
-                        help="Whether to perform few shot conditioning")
+                        help="Whether to perform few-shot conditioning")
+    parser.add_argument('--do_sorted', action='store_true',
+                        help="Whether to sort few-shot examples")
+    parser.add_argument('--do_balanced', action='store_true',
+                        help="Whether to balance few-shot examples by label")
     ### NEW ###
     args = parser.parse_args()
 
@@ -182,7 +186,29 @@ def main():
 
                 ### NEW ###
                 if args.do_few_shot:
+                    if args.do_sorted:
+                        exlen = lambda x: len(x) if x is not None else 0
+                        key = lambda ex: exlen(ex.text_a) + exlen(ex.text_b)
+                        train_data.sort(key=key, reverse=True) # lngst to shrtst
+
                     wrapper.preprocessor.pvp.few_shot_data = train_data
+
+                    if args.do_balanced:
+                        exs = list(reversed(train_data)) # shrtst to lngst
+                        seen = []
+                        for i in range(len(train_data)):
+                            if exs[i].label in seen:
+                                for j in range(i + 1, len(exs)):
+                                    if exs[j].label not in seen:
+                                        seen.append(exs[j].label)
+                                        exs[i], exs[j] = exs[j], exs[i]
+                                        break
+                            else:
+                                seen.append(exs[i].label)
+                            if len(seen) == len(wrapper.config.label_list):
+                                seen = []
+                        wrapper.preprocessor.pvp.few_shot_data = list(
+                            reversed(exs))
                 ### NEW ###
 
                 results_dict['train_set_before_training'] = wrapper.eval(train_data, device, **vars(args))['acc']
