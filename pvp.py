@@ -119,8 +119,16 @@ class PVP(ABC):
         tokens_a = [token_id for part, _ in parts_a for token_id in part]
         tokens_b = [token_id for part, _ in parts_b for token_id in part] if parts_b else None
 
-        input_ids = tokenizer.build_inputs_with_special_tokens(tokens_a, tokens_b)
-        token_type_ids = tokenizer.create_token_type_ids_from_sequences(tokens_a, tokens_b)
+        ### NEW ###
+        # input_ids = tokenizer.build_inputs_with_special_tokens(tokens_a, tokens_b)
+        # token_type_ids = tokenizer.create_token_type_ids_from_sequences(tokens_a, tokens_b)
+        if parts_b == []:
+            input_ids = tokenizer.build_inputs_with_special_tokens(tokens_a, tokens_b)
+            token_type_ids = tokenizer.create_token_type_ids_from_sequences(tokens_a, tokens_b)
+        else:
+            input_ids = tokenizer.build_inputs_with_special_tokens(tokens_a + tokens_b)
+            token_type_ids = tokenizer.create_token_type_ids_from_sequences(tokens_a + tokens_b)
+        ### NEW ###
 
         return input_ids, token_type_ids
 

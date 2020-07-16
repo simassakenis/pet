@@ -126,6 +126,8 @@ def main():
                         help="Whether to sort few-shot examples")
     parser.add_argument('--do_balanced', action='store_true',
                         help="Whether to balance few-shot examples by label")
+    parser.add_argument('--do_short_eval', action='store_true',
+                        help="Whether to evaluate on labeled set T")
     ### NEW ###
     args = parser.parse_args()
 
@@ -280,6 +282,41 @@ def main():
 
                 wrapper.model = None
                 torch.cuda.empty_cache()
+
+            ### NEW ###
+            if args.do_short_eval:
+                for pattern_id in args.pattern_ids:
+                    args.pattern_id = pattern_id
+                    wrapper = TransformerModelWrapper(args)
+                    wrapper.model.to(device)
+
+                    if args.do_few_shot:
+                        exlen = lambda x: len(x) if x is not None else 0
+                        key = lambda ex: exlen(ex.text_a) + exlen(ex.text_b)
+                        train_data.sort(key=key, reverse=True) # lngst to shrtst
+
+                        exs = list(reversed(train_data)) # shrtst to lngst
+                        seen = []
+                        for i in range(len(train_data)):
+                            if exs[i].label in seen:
+                                for j in range(i + 1, len(exs)):
+                                    if exs[j].label not in seen:
+                                        seen.append(exs[j].label)
+                                        exs[i], exs[j] = exs[j], exs[i]
+                                        break
+                            else:
+                                seen.append(exs[i].label)
+                            if len(seen) == len(wrapper.config.label_list):
+                                seen = []
+                        exs = list(reversed(exs))
+                        wrapper.preprocessor.pvp.few_shot_data = exs[40:] # use 40/50 examples for few-shot conditioning
+
+                        res = wrapper.eval(exs[:40], device, **vars(args))
+                    else:
+                        res = wrapper.eval(train_data, device, **vars(args))
+                    logger.info(f'p{args.pattern_id} loss: {res["loss"]}, acc: {res["acc"]}')
+                return 0
+            ### NEW ###
 
     logger.info("=== OVERALL RESULTS ===")
 

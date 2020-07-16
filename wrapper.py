@@ -206,6 +206,7 @@ class TransformerModelWrapper:
         train_iterator = trange(int(num_train_epochs), desc="Epoch")
 
         for epoch in train_iterator:
+            if epoch > 0: assert False
             epoch_iterator = tqdm(train_dataloader, desc="Iteration")
             for step, batch in enumerate(epoch_iterator):
                 self.model.train()
@@ -306,6 +307,10 @@ class TransformerModelWrapper:
         nb_eval_steps = 0
         preds = None
         out_label_ids = None
+        ### NEW ###
+        losses = []
+        loss_fct = nn.CrossEntropyLoss(reduction='none')
+        ### NEW ###
 
         for batch in tqdm(eval_dataloader, desc="Evaluating"):
             self.model.eval()
@@ -317,9 +322,21 @@ class TransformerModelWrapper:
                 inputs = {'input_ids': batch[0], 'attention_mask': batch[1],
                           'token_type_ids': batch[2] if self.config.model_type in ['bert', 'xlnet'] else None}
                 outputs = self.model(**inputs)
+                ### NEW ###
+                # logger.info(self.tokenizer.decode(inputs['input_ids'][0]))
+                # for j in range(inputs['input_ids'].shape[0]):
+                #     logger.info(self.tokenizer.decode(inputs['input_ids'][j]))
+                # assert False
+                ### NEW ###
                 logits = outputs[0]
                 if self.config.wrapper_type == MLM_WRAPPER:
                     logits = self.preprocessor.pvp.convert_mlm_logits_to_cls_logits(mlm_labels, logits)
+                    ### NEW ###
+                    loss = loss_fct(
+                        logits.view(-1, len(self.config.label_list)),
+                        labels.view(-1))
+                    losses.extend(loss.tolist())
+                    ### NEW ###
             nb_eval_steps += 1
             if preds is None:
                 preds = logits.detach().cpu().numpy()
@@ -328,11 +345,17 @@ class TransformerModelWrapper:
                 preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
                 out_label_ids = np.append(out_label_ids, labels.detach().cpu().numpy(), axis=0)
 
+        avg_loss = np.mean(losses)
         if output_logits:
             return preds
 
         preds = np.argmax(preds, axis=1)
+        ### NEW ###
+        # logger.info(losses)
+        # return {"acc": simple_accuracy(preds, out_label_ids),
+        #         "loss": np.mean(losses)}
         return {"acc": simple_accuracy(preds, out_label_ids)}
+        ### NEW ###
 
     def _generate_dataset(self, data: List[InputExample], labelled: bool = True):
         features = self._convert_examples_to_features(data, labelled)
