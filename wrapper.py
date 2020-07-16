@@ -206,7 +206,6 @@ class TransformerModelWrapper:
         train_iterator = trange(int(num_train_epochs), desc="Epoch")
 
         for epoch in train_iterator:
-            if epoch > 0: assert False
             epoch_iterator = tqdm(train_dataloader, desc="Iteration")
             for step, batch in enumerate(epoch_iterator):
                 self.model.train()
@@ -345,7 +344,6 @@ class TransformerModelWrapper:
                 preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
                 out_label_ids = np.append(out_label_ids, labels.detach().cpu().numpy(), axis=0)
 
-        avg_loss = np.mean(losses)
         if output_logits:
             return preds
 
