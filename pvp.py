@@ -47,13 +47,6 @@ class PVP(ABC):
             self.verbalize = PVP._load_verbalizer_from_file(verbalizer_file, self.pattern_id)
 
         self.mlm_logits_to_cls_logits_tensor = self._build_mlm_logits_to_cls_logits_tensor()
-        ### NEW ###
-        self.few_shot_data = None
-        # self.few_shot_sep = ' . \n\n .'
-        self.few_shot_sep = self.wrapper.tokenizer.sep_token
-        self.few_shot_sep_part = (self.wrapper.tokenizer.encode(
-            self.few_shot_sep, add_special_tokens=False), False)
-        ### NEW ###
 
     def _build_mlm_logits_to_cls_logits_tensor(self):
         label_list = self.wrapper.config.label_list
@@ -83,16 +76,6 @@ class PVP(ABC):
         tokenizer = self.wrapper.tokenizer  # type: PreTrainedTokenizer
         parts_a, parts_b = self.get_parts(example)
 
-        ### NEW ###
-        cond = []
-        if self.few_shot_data is not None:
-            for ex in self.few_shot_data:
-                cond_a, cond_b = self.get_parts(ex)
-                cond.extend(self.verbalize(ex.label)[0] if p == self.mask else p
-                            for p in cond_a + cond_b + [self.few_shot_sep])
-        parts_a = cond + parts_a
-        ### NEW ###
-
         kwargs = {'add_prefix_space': True} if isinstance(tokenizer, GPT2Tokenizer) else {}
 
         parts_a = [x if isinstance(x, tuple) else (x, False) for x in parts_a]
@@ -103,32 +86,12 @@ class PVP(ABC):
             parts_b = [(tokenizer.encode(x, add_special_tokens=False, **kwargs), s) for x, s in parts_b if x]
 
         self.truncate(parts_a, parts_b, max_length=self.wrapper.config.max_seq_length)
-        ### NEW ###
-        if self.few_shot_data is not None:
-            num_cond = parts_a.count(self.few_shot_sep_part)
-            logger.info("Conditioning on {}/{} examples; labels: {}".format(
-                num_cond, len(self.few_shot_data),
-                [ex.label for ex in self.few_shot_data[-num_cond:]]))
-            # Removing dots (which were added to tokenize \n\n properly)
-            if self.few_shot_sep == ' . \n\n .':
-                parts_a = [(p[0][1:-1], p[1])
-                           if p == self.few_shot_sep_part else p
-                           for p in parts_a]
-        ### NEW ###
 
         tokens_a = [token_id for part, _ in parts_a for token_id in part]
         tokens_b = [token_id for part, _ in parts_b for token_id in part] if parts_b else None
 
-        ### NEW ###
-        # input_ids = tokenizer.build_inputs_with_special_tokens(tokens_a, tokens_b)
-        # token_type_ids = tokenizer.create_token_type_ids_from_sequences(tokens_a, tokens_b)
-        if parts_b == []:
-            input_ids = tokenizer.build_inputs_with_special_tokens(tokens_a, tokens_b)
-            token_type_ids = tokenizer.create_token_type_ids_from_sequences(tokens_a, tokens_b)
-        else:
-            input_ids = tokenizer.build_inputs_with_special_tokens(tokens_a + tokens_b)
-            token_type_ids = tokenizer.create_token_type_ids_from_sequences(tokens_a + tokens_b)
-        ### NEW ###
+        input_ids = tokenizer.build_inputs_with_special_tokens(tokens_a, tokens_b)
+        token_type_ids = tokenizer.create_token_type_ids_from_sequences(tokens_a, tokens_b)
 
         return input_ids, token_type_ids
 
@@ -148,12 +111,6 @@ class PVP(ABC):
 
         if num_tokens_to_remove <= 0:
             return parts_a, parts_b
-
-        ### NEW ###
-        if self.few_shot_sep_part in parts_a:
-            parts_a[:] = parts_a[parts_a.index(self.few_shot_sep_part)+1:]
-            return self.truncate(parts_a, parts_b, max_length)
-        ### NEW ###
 
         for _ in range(num_tokens_to_remove):
             if self._seq_length(parts_a, only_shortenable=True) > self._seq_length(parts_b, only_shortenable=True):

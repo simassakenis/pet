@@ -191,14 +191,13 @@ def main():
                     if args.do_sorted:
                         exlen = lambda x: len(x) if x is not None else 0
                         key = lambda ex: exlen(ex.text_a) + exlen(ex.text_b)
-                        train_data.sort(key=key, reverse=True) # lngst to shrtst
+                        exs = sorted(train_data, key=key) # shrtstto lngst
 
-                    wrapper.preprocessor.pvp.few_shot_data = train_data
+                    wrapper.preprocessor.few_shot_data = exs
 
                     if args.do_balanced:
-                        exs = list(reversed(train_data)) # shrtst to lngst
                         seen = []
-                        for i in range(len(train_data)):
+                        for i in range(len(exs)):
                             if exs[i].label in seen:
                                 for j in range(i + 1, len(exs)):
                                     if exs[j].label not in seen:
@@ -209,8 +208,7 @@ def main():
                                 seen.append(exs[i].label)
                             if len(seen) == len(wrapper.config.label_list):
                                 seen = []
-                        wrapper.preprocessor.pvp.few_shot_data = list(
-                            reversed(exs))
+                        wrapper.preprocessor.few_shot_data = exs
                 ### NEW ###
 
                 results_dict['train_set_before_training'] = wrapper.eval(train_data, device, **vars(args))['acc']
