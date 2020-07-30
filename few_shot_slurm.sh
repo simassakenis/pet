@@ -12,11 +12,11 @@ source activate pet
 python run_training.py \
 --wrapper_type mlm \
 --train_examples 10 \
---data_dir data/yelp-full/ \
+--data_dir data/mnli/ \
 --model_type roberta \
 --model_name_or_path roberta-large \
---task_name yelp-full \
---output_dir /n/shieber_lab/Lab/users/ssakenis/pet/output_few_shot_yelp_10_sorted_balanced_512_week5 \
+--task_name mnli \
+--output_dir /n/shieber_lab/Lab/users/ssakenis/pet/output_few_shot_mnli_10_sorted_balanced_512_end_shuffle \
 --do_train \
 --do_eval \
 --max_steps 0 \

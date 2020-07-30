@@ -21,7 +21,7 @@ from typing import Tuple, List, Union, Dict
 
 import torch
 import torch.nn.functional as F
-from transformers import InputExample, PreTrainedTokenizer, GPT2Tokenizer
+from transformers import InputExample, PreTrainedTokenizer, GPT2Tokenizer, XLNetTokenizer ### NEW (XLNet)
 
 import log
 
@@ -34,6 +34,13 @@ def _prepare(word: str, tokenizer: PreTrainedTokenizer) -> str:
         if len(tokenized_word) != 1:
             raise ValueError('"{}" is not a single-token word (tokenized: {})'.format(word, tokenized_word))
         return tokenized_word[0]
+    ### NEW ###
+    elif isinstance(tokenizer, XLNetTokenizer):
+        tokenized_word = tokenizer.tokenize(word)
+        if len(tokenized_word) != 1:
+            raise ValueError('"{}" is not a single-token word (tokenized: {})'.format(word, tokenized_word))
+        return tokenized_word[0]
+    ### NEW ###
     return word
 
 

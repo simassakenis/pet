@@ -191,24 +191,25 @@ def main():
                     if args.do_sorted:
                         exlen = lambda x: len(x) if x is not None else 0
                         key = lambda ex: exlen(ex.text_a) + exlen(ex.text_b)
-                        exs = sorted(train_data, key=key) # shrtstto lngst
+                        train_data.sort(key=key) # shortest to longest
 
-                    wrapper.preprocessor.few_shot_data = exs
+                    wrapper.preprocessor.few_shot_data = train_data
 
                     if args.do_balanced:
                         seen = []
-                        for i in range(len(exs)):
-                            if exs[i].label in seen:
-                                for j in range(i + 1, len(exs)):
-                                    if exs[j].label not in seen:
-                                        seen.append(exs[j].label)
-                                        exs[i], exs[j] = exs[j], exs[i]
+                        for i in range(len(train_data)):
+                            if train_data[i].label in seen:
+                                for j in range(i + 1, len(train_data)):
+                                    if train_data[j].label not in seen:
+                                        seen.append(train_data[j].label)
+                                        tmp = train_data[i], train_data[j]
+                                        train_data[j], train_data[i] = tmp
                                         break
                             else:
-                                seen.append(exs[i].label)
+                                seen.append(train_data[i].label)
                             if len(seen) == len(wrapper.config.label_list):
                                 seen = []
-                        wrapper.preprocessor.few_shot_data = exs
+                        wrapper.preprocessor.few_shot_data = train_data
                 ### NEW ###
 
                 results_dict['train_set_before_training'] = wrapper.eval(train_data, device, **vars(args))['acc']

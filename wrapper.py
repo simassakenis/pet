@@ -27,7 +27,7 @@ import numpy as np
 from torch.utils.data import RandomSampler, DataLoader, SequentialSampler, TensorDataset
 from tqdm import trange, tqdm
 from transformers import InputExample, AdamW, get_linear_schedule_with_warmup, PreTrainedTokenizer, BertForMaskedLM, \
-    RobertaForMaskedLM, XLMRobertaForMaskedLM
+    RobertaForMaskedLM, XLMRobertaForMaskedLM, XLNetLMHeadModel ### NEW (XLNet)
 from transformers import (BertConfig,
                           BertForSequenceClassification, BertTokenizer,
                           RobertaConfig,
@@ -36,6 +36,9 @@ from transformers import (BertConfig,
                           XLMRobertaConfig,
                           XLMRobertaForSequenceClassification,
                           XLMRobertaTokenizer,
+                          XLNetConfig, ### NEW
+                          XLNetForSequenceClassification, ### NEW
+                          XLNetTokenizer, ### NEW
                           )
 from transformers import __version__ as transformers_version
 from transformers.data.metrics import simple_accuracy
@@ -75,7 +78,15 @@ MODEL_CLASSES = {
         'tokenizer': XLMRobertaTokenizer,
         SEQUENCE_CLASSIFIER_WRAPPER: XLMRobertaForSequenceClassification,
         MLM_WRAPPER: XLMRobertaForMaskedLM
+    },
+    ### NEW ###
+    'xlnet': {
+        'config': XLNetConfig,
+        'tokenizer': XLNetTokenizer,
+        SEQUENCE_CLASSIFIER_WRAPPER: XLNetForSequenceClassification,
+        MLM_WRAPPER: XLNetLMHeadModel
     }
+    ### NEW ###
 }
 
 
@@ -321,13 +332,13 @@ class TransformerModelWrapper:
                 inputs = {'input_ids': batch[0], 'attention_mask': batch[1],
                           'token_type_ids': batch[2] if self.config.model_type in ['bert', 'xlnet'] else None}
                 outputs = self.model(**inputs)
+                logits = outputs[0]
                 ### NEW ###
                 # logger.info(self.tokenizer.decode(inputs['input_ids'][0]))
                 # for j in range(inputs['input_ids'].shape[0]):
                 #     logger.info(self.tokenizer.decode(inputs['input_ids'][j]))
                 # assert False
                 ### NEW ###
-                logits = outputs[0]
                 if self.config.wrapper_type == MLM_WRAPPER:
                     logits = self.preprocessor.pvp.convert_mlm_logits_to_cls_logits(mlm_labels, logits)
                     ### NEW ###

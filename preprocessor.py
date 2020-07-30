@@ -4,6 +4,7 @@ from utils import InputFeatures, InputExample
 
 from pvp import AgnewsPVP, MnliPVP, YelpPolarityPVP, YelpFullPVP, \
     YahooPVP, PVP, XStancePVP, _prepare ### NEW (_prepare)
+import random ### NEW (_prepare)
 
 PVPS = {
     'agnews': AgnewsPVP,
@@ -43,15 +44,12 @@ class MLMPreprocessor(Preprocessor):
 
             def preprocessed_ex_ids(ex, labelize):
                 ex_input_ids = self.pvp.encode(ex)[0]
-                # Remove start (cls) token <s>
-                assert ex_input_ids[0] == cls_id
-                ex_input_ids = ex_input_ids[1:]
-                # Remove double separator </s></s> (if it is there)
-                for i in range(len(ex_input_ids)-1):
-                    if (ex_input_ids[i:i+2] == [sep_id] * 2):
-                        ex_input_ids.pop(i+1)
-                        ex_input_ids.pop(i)
-                        break
+                # Remove the cls token
+                while cls_id in ex_input_ids:
+                    ex_input_ids.pop(ex_input_ids.index(cls_id))
+                # Remove any sep token(s) before the mask token
+                while ex_input_ids[ex_input_ids.index(mask_id)-1] == sep_id:
+                    ex_input_ids.pop(ex_input_ids.index(mask_id)-1)
                 if not labelize: return ex_input_ids
                 # Replace <mask> with the label
                 label = _prepare(self.pvp.verbalize(ex.label)[0],
@@ -61,19 +59,22 @@ class MLMPreprocessor(Preprocessor):
                         for tok_id in ex_input_ids]
 
             input_ids = preprocessed_ex_ids(example, labelize=False)
-            cond, num_cond = [], 0
+            cond = []
             for ex in self.few_shot_data:
                 new_ex = preprocessed_ex_ids(ex, labelize=True)
-                if (1 + len(cond) + len(new_ex) + len(input_ids) >
+                if (1 + len(sum(cond, [])) + len(new_ex) + len(input_ids) >
                     self.wrapper.config.max_seq_length): break
-                cond.extend(new_ex)
-                num_cond += 1
-            input_ids = [cls_id] + cond + input_ids
+                cond.append(new_ex)
+            # random.shuffle(cond) # shuffle few-shot examples
+            cond.insert(len(cond), input_ids) # prompt at the end
+            # cond.insert(0, input_ids) # prompt at the beginning
+            # cond.insert(len(cond) // 2, input_ids) # prompt in the middle
+            input_ids = sum(cond, [])
             token_type_ids = [0] * len(input_ids)
 
-            # print(f'Conditioning on {num_cond}/'
+            # print(f'Conditioning on {len(cond)}/'
             #       f'{len(self.few_shot_data)} examples; '
-            #       f'labels: {[e.label for e in self.few_shot_data[:num_cond]]}')
+            #       f'labels: {[e.label for e in self.few_shot_data[:len(cond)]]}')
         else:
             input_ids, token_type_ids = self.pvp.encode(example)
         ### NEW ###
@@ -86,6 +87,7 @@ class MLMPreprocessor(Preprocessor):
         token_type_ids = token_type_ids + ([0] * padding_length)
 
         ### NEW ###
+        # print example input
         # print('*****************************')
         # print(self.wrapper.tokenizer.decode(input_ids))
         # assert False
