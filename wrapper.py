@@ -135,6 +135,10 @@ class TransformerModelWrapper:
         self.preprocessor = PREPROCESSORS[self.config.wrapper_type](self, self.config.task_name, self.config.pattern_id,
                                                                     self.config.verbalizer_file)
 
+        ### NEW ###
+        self.is_xlnet = args.model_type == 'xlnet'
+        ### NEW ###
+
     @classmethod
     def from_pretrained(cls, path: str) -> 'TransformerModelWrapper':
         wrapper = TransformerModelWrapper.__new__(TransformerModelWrapper)
@@ -331,7 +335,12 @@ class TransformerModelWrapper:
             with torch.no_grad():
                 inputs = {'input_ids': batch[0], 'attention_mask': batch[1],
                           'token_type_ids': batch[2] if self.config.model_type in ['bert', 'xlnet'] else None}
-                outputs = self.model(**inputs)
+                ### NEW ###
+                if self.config.model_type == 'xlnet':
+                    outputs = self.xlnet_forward(inputs, mlm_labels, device)
+                else:
+                    outputs = self.model(**inputs)
+                ### NEW ###
                 logits = outputs[0]
                 ### NEW ###
                 # logger.info(self.tokenizer.decode(inputs['input_ids'][0]))
@@ -363,7 +372,8 @@ class TransformerModelWrapper:
         # logger.info(losses)
         # return {"acc": simple_accuracy(preds, out_label_ids),
         #         "loss": np.mean(losses)}
-        return {"acc": simple_accuracy(preds, out_label_ids)}
+        return {"acc": simple_accuracy(preds, out_label_ids),
+                "agreement": preds == out_label_ids}
         ### NEW ###
 
     def _generate_dataset(self, data: List[InputExample], labelled: bool = True):
@@ -418,3 +428,17 @@ class TransformerModelWrapper:
 
         # The rest of the time (10% of the time) we keep the masked input tokens unchanged
         return input_ids, labels
+
+    ### NEW ###
+    def xlnet_forward(self, inputs, mlm_labels, device):
+        """ Return the outputs of XLNet's forward pass """
+        bsz, seqlen = inputs['input_ids'].shape
+        perm_mask = (mlm_labels.unsqueeze(axis=2) \
+                    .expand(bsz, seqlen, seqlen) > 0) \
+                    .to(torch.float).to(device)
+        target_mapping = (mlm_labels.unsqueeze(axis=1) > 0) \
+                         .to(torch.float).to(device)
+        return self.model(**inputs,
+                          perm_mask=perm_mask,
+                          target_mapping=target_mapping)
+    ### NEW ###

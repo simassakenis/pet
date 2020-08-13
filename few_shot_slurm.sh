@@ -16,7 +16,7 @@ python run_training.py \
 --model_type roberta \
 --model_name_or_path roberta-large \
 --task_name mnli \
---output_dir /n/shieber_lab/Lab/users/ssakenis/pet/output_few_shot_mnli_10_sorted_balanced_512_end_shuffle \
+--output_dir /n/shieber_lab/Lab/users/ssakenis/pet/output_few_shot_mnli_10_sorted_balanced_512_end_2 \
 --do_train \
 --do_eval \
 --max_steps 0 \

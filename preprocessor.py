@@ -48,7 +48,8 @@ class MLMPreprocessor(Preprocessor):
                 while cls_id in ex_input_ids:
                     ex_input_ids.pop(ex_input_ids.index(cls_id))
                 # Remove any sep token(s) before the mask token
-                while ex_input_ids[ex_input_ids.index(mask_id)-1] == sep_id:
+                while (ex_input_ids.index(mask_id)-1 >= 0 and
+                       ex_input_ids[ex_input_ids.index(mask_id)-1] == sep_id):
                     ex_input_ids.pop(ex_input_ids.index(mask_id)-1)
                 if not labelize: return ex_input_ids
                 # Replace <mask> with the label
@@ -66,9 +67,9 @@ class MLMPreprocessor(Preprocessor):
                     self.wrapper.config.max_seq_length): break
                 cond.append(new_ex)
             # random.shuffle(cond) # shuffle few-shot examples
-            cond.insert(len(cond), input_ids) # prompt at the end
             # cond.insert(0, input_ids) # prompt at the beginning
             # cond.insert(len(cond) // 2, input_ids) # prompt in the middle
+            cond.insert(len(cond), input_ids) # prompt at the end
             input_ids = sum(cond, [])
             token_type_ids = [0] * len(input_ids)
 

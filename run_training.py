@@ -20,6 +20,7 @@ import os
 import statistics
 from collections import defaultdict
 import torch
+import pickle ### NEW
 
 from tasks import PROCESSORS, load_examples
 from utils import set_seed, eq_div, save_logits, LogitsList, InputExample
@@ -275,6 +276,13 @@ def main():
                 results_dict['test_set_after_training'] = result['acc']
                 with open(os.path.join(output_dir, 'results.txt'), 'w') as fh:
                     fh.write(str(results_dict))
+
+                ### NEW ###
+                fname = os.path.join(output_dir, 'agreement.pickle')
+                with open(fname, 'wb') as fp:
+                    pickle.dump(result['agreement'], fp)
+                result.pop('agreement', None)
+                ### NEW ###
 
                 for key, value in result.items():
                     results['{}-p{}'.format(key, args.pattern_id)].append(value)
